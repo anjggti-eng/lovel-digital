@@ -22,3 +22,5 @@ Thumbs.db
 # Os artefatos de outputs/ (CSV, tickets, webhooks) são da entrega e ficam versionados.
 outputs/demo/
 *.log
+
+.vercel

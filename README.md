@@ -16,12 +16,18 @@
   <img alt="Licença" src="https://img.shields.io/badge/licen%C3%A7a-defina%20antes%20de%20publicar-lightgrey">
 </p>
 
+<p align="center">
+  <a href="https://lovel-digital.vercel.app"><strong>▶ Demo online</strong></a>
+  ·
+  <a href="https://github.com/anjggti-eng/lovel-digital">Código no GitHub</a>
+</p>
+
 ---
 
 ## Início rápido
 
 ```bash
-git clone <URL-DO-SEU-REPOSITORIO> lovel-digital
+git clone https://github.com/anjggti-eng/lovel-digital.git
 cd lovel-digital
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
