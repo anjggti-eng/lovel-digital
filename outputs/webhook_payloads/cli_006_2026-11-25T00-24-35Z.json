@@ -1,0 +1,14 @@
+{
+  "event": "atendimento.processado",
+  "timestamp": "2026-11-25T00:24:35Z",
+  "cliente": {
+    "cliente_id": "cli_006",
+    "nome": "Eduarda Nunes",
+    "telefone": "+5511999990006"
+  },
+  "intencao": "suporte_tecnico",
+  "urgencia": "media",
+  "status": "RESPONDIDO_AUTOMATICO",
+  "resposta": "Para redefinir sua senha: 1) acesse loveldigital.com.br/login; 2) clique em 'Esqueci minha senha'; 3) informe o e-mail cadastrado; 4) siga o link enviado por e-mail (válido por 30 minutos). Se o e-mail não chegar, verifique a caixa de spam ou solicite novamente após 5 minutos.",
+  "ticket_id": null
+}

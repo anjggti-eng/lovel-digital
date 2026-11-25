@@ -1,0 +1,19 @@
+{
+  "ticket_id": "TKT-20261125-002",
+  "criado_em": "2026-11-25T00:24:35Z",
+  "status": "ABERTO",
+  "cliente": {
+    "cliente_id": "cli_003",
+    "nome": "Carlos Pereira",
+    "telefone": "+5511999990003"
+  },
+  "mensagem_original": "Isso é um absurdo! Quero cancelar agora e falar com um supervisor imediatamente!",
+  "classificacao": {
+    "intencao": "reclamacao_critica",
+    "urgencia": "critica",
+    "justificativa": "Pedido de cancelamento ou ameaça explícita (mock)."
+  },
+  "motivo_transbordo": "reclamacao_critica",
+  "resumo_estruturado": "Cliente Carlos Pereira (cli_003) relata: \"Isso é um absurdo! Quero cancelar agora e falar com um supervisor imediatamente!\". Intenção: reclamacao_critica. Urgência: critica. Motivo do transbordo: reclamacao_critica. Ação sugerida: contato humano em até 1 hora útil.",
+  "acao_sugerida": "Contato humano em até 1 hora útil."
+}

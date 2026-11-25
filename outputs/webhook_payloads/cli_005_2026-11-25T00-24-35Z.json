@@ -1,0 +1,14 @@
+{
+  "event": "atendimento.processado",
+  "timestamp": "2026-11-25T00:24:35Z",
+  "cliente": {
+    "cliente_id": "cli_005",
+    "nome": "Diego Rocha",
+    "telefone": "+5511999990005"
+  },
+  "intencao": "reclamacao_critica",
+  "urgencia": "critica",
+  "status": "TRANSBORDADO",
+  "resposta": null,
+  "ticket_id": "TKT-20261125-004"
+}

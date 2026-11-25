@@ -1,0 +1,67 @@
+{
+  "empresa": "Lovel Digital",
+  "faqs": [
+    {
+      "id": "faq_prazo_entrega",
+      "topico": "Prazo de entrega",
+      "palavras_chave": [
+        "prazo",
+        "entrega",
+        "cep",
+        "chegar",
+        "transportadora",
+        "frete"
+      ],
+      "resposta_padrao": "O prazo de entrega varia por região: Sudeste 3 a 5 dias úteis; Sul e Centro-Oeste 5 a 7 dias úteis; Nordeste 7 a 10 dias úteis; Norte 10 a 15 dias úteis. O prazo começa a contar após a confirmação do pagamento."
+    },
+    {
+      "id": "faq_reembolso",
+      "topico": "Política de reembolso",
+      "palavras_chave": [
+        "reembolso",
+        "devolução",
+        "estorno",
+        "dinheiro de volta",
+        "arrependimento"
+      ],
+      "resposta_padrao": "Reembolsos são processados em até 7 dias úteis após o recebimento do produto devolvido. Compras com arrependimento têm até 7 dias corridos após o recebimento para solicitação, conforme o Código de Defesa do Consumidor."
+    },
+    {
+      "id": "faq_login",
+      "topico": "Problemas de login",
+      "palavras_chave": [
+        "login",
+        "senha",
+        "entrar",
+        "acesso",
+        "conta",
+        "esqueci"
+      ],
+      "resposta_padrao": "Para redefinir sua senha: 1) acesse loveldigital.com.br/login; 2) clique em 'Esqueci minha senha'; 3) informe o e-mail cadastrado; 4) siga o link enviado por e-mail (válido por 30 minutos). Se o e-mail não chegar, verifique a caixa de spam ou solicite novamente após 5 minutos."
+    },
+    {
+      "id": "faq_cancelamento",
+      "topico": "Cancelamento de assinatura",
+      "palavras_chave": [
+        "cancelar",
+        "cancelamento",
+        "assinatura",
+        "plano",
+        "mensalidade"
+      ],
+      "resposta_padrao": "O cancelamento da assinatura pode ser feito no painel do cliente em 'Minha Conta > Assinatura > Cancelar'. Não há multa. O acesso permanece ativo até o fim do ciclo já pago."
+    },
+    {
+      "id": "faq_horario",
+      "topico": "Horário de atendimento",
+      "palavras_chave": [
+        "horário",
+        "atendimento",
+        "funcionamento",
+        "aberto",
+        "falar com atendente"
+      ],
+      "resposta_padrao": "Nosso atendimento humano funciona de segunda a sexta, das 9h às 18h (horário de Brasília). A assistente virtual está disponível 24/7."
+    }
+  ]
+}

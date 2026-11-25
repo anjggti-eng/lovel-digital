@@ -1,0 +1,19 @@
+{
+  "ticket_id": "TKT-20261125-001",
+  "criado_em": "2026-11-25T00:24:35Z",
+  "status": "ABERTO",
+  "cliente": {
+    "cliente_id": "cli_002",
+    "nome": "Ana Costa",
+    "telefone": "+5511999990002"
+  },
+  "mensagem_original": "Vocês vendem cartucho de tinta para impressora Epson?",
+  "classificacao": {
+    "intencao": "fora_de_escopo",
+    "urgencia": "media",
+    "justificativa": "Sem intenção clara mapeada pelas heurísticas (mock)."
+  },
+  "motivo_transbordo": "nao_coberto_pela_base",
+  "resumo_estruturado": "Cliente Ana Costa (cli_002) relata: \"Vocês vendem cartucho de tinta para impressora Epson?\". Intenção: fora_de_escopo. Urgência: media. Motivo do transbordo: nao_coberto_pela_base. Ação sugerida: contato humano em até 1 dia útil.",
+  "acao_sugerida": "Contato humano em até 1 dia útil."
+}

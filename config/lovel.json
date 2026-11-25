@@ -1,0 +1,60 @@
+{
+  "empresa": {
+    "nome": "Lovel Digital",
+    "horario_atendimento": "Segunda a sexta, 9h às 18h (horário de Brasília)."
+  },
+  "llm": {
+    "modo": "auto",
+    "model": "gpt-4o-mini",
+    "temperature": 0.0,
+    "max_tokens_classificacao": 200,
+    "max_tokens_resposta": 300
+  },
+  "base": {
+    "arquivo": "data/knowledge_base.json",
+    "limiar": 0.1,
+    "top_k": 3
+  },
+  "transbordo": {
+    "reclamacao_critica": true,
+    "termos_criticos_urgentes": true,
+    "sem_cobertura": true,
+    "fora_de_escopo_urgente": true,
+    "termos_criticos": [
+      "cancelar",
+      "cancelamento",
+      "reembolso",
+      "estorno",
+      "dinheiro de volta",
+      "processo",
+      "procon",
+      "advogado",
+      "jurídico",
+      "processar",
+      "reclamação no procon"
+    ],
+    "prazos": {
+      "critica": "Contato humano em até 1 hora útil.",
+      "alta": "Contato humano em até 4 horas úteis.",
+      "media": "Contato humano em até 1 dia útil.",
+      "baixa": "Contato humano em até 2 dias úteis."
+    }
+  },
+  "registro": {
+    "csv": true,
+    "tickets": true,
+    "webhook": true,
+    "diretorio": "outputs"
+  },
+  "demo": {
+    "host": "127.0.0.1",
+    "port": 8000
+  },
+  "whatsapp": {
+    "enabled": false,
+    "api_url": "https://graph.facebook.com/v21.0/me/messages",
+    "token": "",
+    "phone_number_id": "",
+    "versao_api": "v21.0"
+  }
+}

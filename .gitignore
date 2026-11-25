@@ -1,0 +1,21 @@
+# Ambiente virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Variáveis de ambiente (nunca versionar chaves)
+.env
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Artefatos transitórios da demo web.
+# Os artefatos de outputs/ (CSV, tickets, webhooks) são da entrega e ficam versionados.
+outputs/demo/
+*.log

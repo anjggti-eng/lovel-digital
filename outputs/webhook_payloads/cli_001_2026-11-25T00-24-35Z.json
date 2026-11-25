@@ -1,0 +1,14 @@
+{
+  "event": "atendimento.processado",
+  "timestamp": "2026-11-25T00:24:35Z",
+  "cliente": {
+    "cliente_id": "cli_001",
+    "nome": "João Silva",
+    "telefone": "+5511999990001"
+  },
+  "intencao": "duvida_comercial",
+  "urgencia": "baixa",
+  "status": "RESPONDIDO_AUTOMATICO",
+  "resposta": "O prazo de entrega varia por região: Sudeste 3 a 5 dias úteis; Sul e Centro-Oeste 5 a 7 dias úteis; Nordeste 7 a 10 dias úteis; Norte 10 a 15 dias úteis. O prazo começa a contar após a confirmação do pagamento.",
+  "ticket_id": null
+}
