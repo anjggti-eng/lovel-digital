@@ -22,8 +22,10 @@
 - `src/llm_client.py` — wrapper OpenAI `gpt-4o-mini` e mock determinístico.
 - `src/config.py` — configuração única, validação e gravação atômica.
 - `src/export.py` — exportação dos atendimentos em CSV e XML.
-- `src/demo_server.py` — servidor HTTP local da demo (stdlib, sem dependências).
+- `src/demo_server.py` — roteador HTTP comum (`responder`) + servidor local (stdlib).
 - `src/demo_ui.html` — UI da demo (chat + pipeline + configurações), servida pelo server.
+- `app.py` — adaptador WSGI/Flask para o Vercel, usando o mesmo `responder`.
+- `assets/` — logo original (`logo.png`), marca do cabeçalho e favicon.
 
 ## Invariantes
 
@@ -39,3 +41,6 @@
 7. A demo web usa o mesmo `processar_mensagem` e grava em `outputs/demo/`;
    nunca altera `outputs/atendimentos.csv`, `outputs/tickets/` nem
    `outputs/webhook_payloads/`.
+8. O Vercel usa o mesmo roteador (`responder`) via `app.py`; no deploy, config,
+   base e saídas são copiadas para `/tmp` (disco efêmero) por
+   `LOVEL_CONFIG` / `LOVEL_KB` / `LOVEL_DEMO_DIR` / `LOVEL_OUTPUT_DIR`.

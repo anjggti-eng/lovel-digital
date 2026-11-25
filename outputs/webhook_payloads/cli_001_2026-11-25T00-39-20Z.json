@@ -1,10 +1,10 @@
 {
   "event": "atendimento.processado",
-  "timestamp": "2026-11-25T00:24:35Z",
+  "timestamp": "2026-11-25T00:39:20Z",
   "cliente": {
-    "cliente_id": "cli_007",
-    "nome": "Felipe Andrade",
-    "telefone": "+5511999990007"
+    "cliente_id": "cli_001",
+    "nome": "João Silva",
+    "telefone": "+5511999990001"
   },
   "intencao": "duvida_comercial",
   "urgencia": "baixa",

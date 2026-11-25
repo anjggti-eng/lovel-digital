@@ -1,11 +1,15 @@
-"""Demo web local do fluxo de atendimento (sem dependências externas).
+"""Demo web do fluxo de atendimento (sem dependências externas no modo local).
 
 Sobe uma UI em http://127.0.0.1:8000 que simula o WhatsApp, executa o mesmo
 ``processar_mensagem`` do CLI e permite configurar todo o fluxo (empresa,
 modelo, limiar de busca, regras de transbordo, prazos e registros).
 
-Os artefatos da demo vão para ``outputs/demo/`` para não alterar os arquivos
-canônicos de ``outputs/`` (CSV, tickets e webhooks da entrega).
+O roteamento HTTP fica em :func:`responder`, independente do servidor. Assim o
+mesmo código atende o ``http.server`` local e o adaptador WSGI usado no Vercel
+(``app.py``), sem duplicar regra de negócio.
+
+Os artefatos da demo vão para ``outputs/demo/`` (ou para o diretório indicado
+por ``LOVEL_DEMO_DIR``) para não alterar os arquivos canônicos de ``outputs/``.
 """
 
 from __future__ import annotations
@@ -14,6 +18,8 @@ import argparse
 import copy
 import csv
 import json
+import os
+import re
 import sys
 import threading
 import webbrowser
@@ -26,9 +32,21 @@ from . import config as config_mod
 from . import export, knowledge_base, llm_client
 from .main import CASES_DIR, limpar_saidas, processar_mensagem
 
-DEMO_DIR = config_mod.ROOT / "outputs" / "demo"
+DEMO_DIR = Path(
+    os.getenv("LOVEL_DEMO_DIR") or (config_mod.ROOT / "outputs" / "demo")
+).expanduser()
 UI_PATH = Path(__file__).with_name("demo_ui.html")
+ASSETS_DIR = config_mod.ROOT / "assets"
 LOCK = threading.RLock()
+
+TIPOS_ASSET = {
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".ico": "image/x-icon",
+}
 
 
 # --------------------------------------------------------------------------
@@ -60,13 +78,21 @@ def _casos() -> list[dict]:
     return casos
 
 
+def _exibir(caminho: Path) -> str:
+    """Caminho relativo à raiz quando possível (mais legível na UI)."""
+    try:
+        return str(caminho.relative_to(config_mod.ROOT))
+    except ValueError:
+        return str(caminho)
+
+
 def _meta() -> dict:
     return {
-        "config_path": str(config_mod.caminho()),
-        "kb_path": str(knowledge_base.caminho_base()),
-        "demo_dir": str(DEMO_DIR),
-        "saida_dir": str(config_mod.diretorio_saida()),
-        "cases_dir": str(CASES_DIR),
+        "config_path": _exibir(config_mod.caminho()),
+        "kb_path": _exibir(knowledge_base.caminho_base()),
+        "demo_dir": _exibir(DEMO_DIR),
+        "saida_dir": _exibir(config_mod.diretorio_saida()),
+        "cases_dir": _exibir(CASES_DIR),
     }
 
 
@@ -120,7 +146,191 @@ def _executar(payload: dict) -> dict:
 
 
 # --------------------------------------------------------------------------
-# HTTP
+# roteamento (comum ao servidor local e ao Vercel)
+# --------------------------------------------------------------------------
+
+
+def _json(payload: dict, status: int = 200) -> tuple[int, dict[str, str], bytes]:
+    corpo = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    return status, {"Content-Type": "application/json; charset=utf-8"}, corpo
+
+
+def _asset(nome: str) -> tuple[int, dict[str, str], bytes]:
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", nome):
+        return _json({"error": "Arquivo não encontrado."}, 404)
+    arquivo = ASSETS_DIR / nome
+    if not arquivo.is_file():
+        return _json({"error": "Arquivo não encontrado."}, 404)
+    tipo = TIPOS_ASSET.get(arquivo.suffix.lower(), "application/octet-stream")
+    return (
+        200,
+        {"Content-Type": tipo, "Cache-Control": "public, max-age=3600"},
+        arquivo.read_bytes(),
+    )
+
+
+def _json_do_corpo(corpo: bytes) -> dict:
+    if not corpo:
+        raise ValueError("Corpo da requisição vazio.")
+    if len(corpo) > 1_000_000:
+        raise ValueError("Payload muito grande.")
+    try:
+        dados = json.loads(corpo.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("JSON inválido no corpo da requisição.") from exc
+    if not isinstance(dados, dict):
+        raise ValueError("O payload deve ser um objeto JSON.")
+    return dados
+
+
+def _get(rota: str) -> tuple[int, dict[str, str], bytes]:
+    if rota in ("/", "/index.html"):
+        if not UI_PATH.exists():
+            return _json({"error": "Arquivo demo_ui.html não encontrado."}, 500)
+        return (
+            200,
+            {"Content-Type": "text/html; charset=utf-8"},
+            UI_PATH.read_bytes(),
+        )
+    if rota == "/favicon.ico":
+        return _asset("favicon.png")
+    if rota.startswith("/assets/"):
+        return _asset(rota[len("/assets/") :])
+    if rota == "/api/bootstrap":
+        with LOCK:
+            return _json(_bootstrap())
+    if rota == "/api/cases":
+        with LOCK:
+            return _json({"cases": _casos(), "llm": llm_client.status_llm(), **_estado()})
+    if rota == "/api/state":
+        with LOCK:
+            return _json({"llm": llm_client.status_llm(), **_estado()})
+    if rota == "/api/kb":
+        with LOCK:
+            return _json({"kb": knowledge_base.carregar_base()})
+    if rota == "/api/config":
+        with LOCK:
+            return _json({"config": config_mod.carregar()})
+    if rota == "/api/export/csv":
+        with LOCK:
+            dados = export.ler_atendimentos(DEMO_DIR)
+            corpo = export.exportar_csv(dados).encode("utf-8")
+        return (
+            200,
+            {
+                "Content-Type": "text/csv; charset=utf-8",
+                "Content-Disposition": 'attachment; filename="atendimentos.csv"',
+            },
+            corpo,
+        )
+    if rota == "/api/export/xml":
+        with LOCK:
+            dados = export.ler_atendimentos(DEMO_DIR)
+            corpo = export.exportar_xml(dados).encode("utf-8")
+        return (
+            200,
+            {
+                "Content-Type": "application/xml; charset=utf-8",
+                "Content-Disposition": 'attachment; filename="atendimentos.xml"',
+            },
+            corpo,
+        )
+    return _json({"error": "Rota não encontrada."}, 404)
+
+
+def _post(rota: str, corpo: bytes) -> tuple[int, dict[str, str], bytes]:
+    if rota == "/api/process":
+        payload = _json_do_corpo(corpo)
+        with LOCK:
+            item = _executar(payload)
+            estado = _estado()
+        return _json({**item, **estado, "llm": llm_client.status_llm()})
+
+    if rota == "/api/run-all":
+        casos = _casos()
+        with LOCK:
+            limpar_saidas(DEMO_DIR)
+            itens = [_executar(caso) for caso in casos]
+            estado = _estado()
+        return _json(
+            {
+                "resultados": itens,
+                "total": len(itens),
+                "llm": llm_client.status_llm(),
+                **estado,
+            }
+        )
+
+    if rota == "/api/reset":
+        with LOCK:
+            limpar_saidas(DEMO_DIR)
+            estado = _estado()
+        return _json({"llm": llm_client.status_llm(), **estado})
+
+    if rota == "/api/config":
+        parcial = _json_do_corpo(corpo)
+        with LOCK:
+            atual = config_mod.carregar()
+            novo = config_mod.validar(config_mod.mesclar(atual, parcial))
+            config_mod.salvar(novo)
+        return _json(
+            {"config": novo, "llm": llm_client.status_llm(), "meta": _meta()}
+        )
+
+    if rota == "/api/config/reset":
+        with LOCK:
+            novo = config_mod.restaurar()
+        return _json(
+            {"config": novo, "llm": llm_client.status_llm(), "meta": _meta()}
+        )
+
+    if rota == "/api/kb":
+        dados = _json_do_corpo(corpo)
+        base = dados["kb"] if isinstance(dados.get("kb"), dict) else dados
+        with LOCK:
+            knowledge_base.salvar_base(base)
+            limpa = knowledge_base.carregar_base()
+        return _json({"kb": limpa})
+
+    if rota == "/api/kb/test":
+        payload = _json_do_corpo(corpo)
+        mensagem = str(payload.get("mensagem") or "").strip()
+        if not mensagem:
+            raise ValueError("Digite uma mensagem para testar.")
+        with LOCK:
+            diagnostico = knowledge_base.pontuar_faqs(mensagem)
+        return _json(diagnostico)
+
+    return _json({"error": "Rota não encontrada."}, 404)
+
+
+def responder(
+    metodo: str, caminho: str, corpo: bytes = b""
+) -> tuple[int, dict[str, str], bytes]:
+    """Resolve uma requisição HTTP e devolve ``(status, headers, corpo)``.
+
+    É a única camada de roteamento: o servidor local e o Vercel chamam esta
+    função, então as duas execuções têm exatamente as mesmas rotas e regras.
+    """
+    rota = urlparse(caminho).path or "/"
+    try:
+        if metodo == "GET":
+            status, headers, dados = _get(rota)
+        elif metodo == "POST":
+            status, headers, dados = _post(rota, corpo)
+        else:
+            status, headers, dados = _json({"error": "Método não suportado."}, 405)
+    except (config_mod.ConfigError, knowledge_base.BaseInvalida, ValueError) as exc:
+        status, headers, dados = _json({"error": str(exc)}, 400)
+    except Exception as exc:  # demo: devolve a mensagem para facilitar o debug
+        status, headers, dados = _json({"error": f"Erro interno: {exc}"}, 500)
+
+    headers.setdefault("Cache-Control", "no-store")
+    return status, headers, dados
+
+
+# --------------------------------------------------------------------------
+# servidor local (stdlib)
 # --------------------------------------------------------------------------
 
 
@@ -128,191 +338,22 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "LovelDemo/2.0"
     protocol_version = "HTTP/1.1"
 
-    # ---------- helpers de resposta ----------
-
-    def _send_bytes(
-        self,
-        corpo: bytes,
-        content_type: str,
-        status: int = 200,
-        headers_extra: dict[str, str] | None = None,
-    ) -> None:
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(corpo)))
-        self.send_header("Cache-Control", "no-store")
-        if headers_extra:
-            for chave, valor in headers_extra.items():
-                self.send_header(chave, valor)
-        self.end_headers()
-        self.wfile.write(corpo)
-
-    def _send_json(self, payload: dict, status: int = 200) -> None:
-        corpo = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        self._send_bytes(corpo, "application/json; charset=utf-8", status)
-
-    def _send_html(self) -> None:
-        if not UI_PATH.exists():
-            self._send_json({"error": "Arquivo demo_ui.html não encontrado."}, 500)
-            return
-        self._send_bytes(UI_PATH.read_bytes(), "text/html; charset=utf-8")
-
-    def _ler_json(self) -> dict:
+    def _enviar(self) -> None:
         tamanho = int(self.headers.get("Content-Length") or 0)
-        if tamanho <= 0:
-            raise ValueError("Corpo da requisição vazio.")
-        if tamanho > 1_000_000:
-            raise ValueError("Payload muito grande.")
-        bruto = self.rfile.read(tamanho)
-        try:
-            dados = json.loads(bruto.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise ValueError("JSON inválido no corpo da requisição.") from exc
-        if not isinstance(dados, dict):
-            raise ValueError("O payload deve ser um objeto JSON.")
-        return dados
-
-    # ---------- rotas ----------
+        corpo = self.rfile.read(tamanho) if tamanho > 0 else b""
+        status, headers, dados = responder(self.command, self.path, corpo)
+        self.send_response(status)
+        for chave, valor in headers.items():
+            self.send_header(chave, valor)
+        self.send_header("Content-Length", str(len(dados)))
+        self.end_headers()
+        self.wfile.write(dados)
 
     def do_GET(self) -> None:  # noqa: N802 (API do http.server)
-        rota = urlparse(self.path).path
-        try:
-            if rota in ("/", "/index.html"):
-                self._send_html()
-                return
-            if rota == "/api/bootstrap":
-                with LOCK:
-                    self._send_json(_bootstrap())
-                return
-            if rota == "/api/cases":
-                with LOCK:
-                    self._send_json(
-                        {"cases": _casos(), "llm": llm_client.status_llm(), **_estado()}
-                    )
-                return
-            if rota == "/api/state":
-                with LOCK:
-                    self._send_json({"llm": llm_client.status_llm(), **_estado()})
-                return
-            if rota == "/api/kb":
-                with LOCK:
-                    self._send_json({"kb": knowledge_base.carregar_base()})
-                return
-            if rota == "/api/config":
-                with LOCK:
-                    self._send_json({"config": config_mod.carregar()})
-                return
-            if rota == "/api/export/csv":
-                with LOCK:
-                    dados = export.ler_atendimentos(DEMO_DIR)
-                    corpo = export.exportar_csv(dados).encode("utf-8")
-                self._send_bytes(
-                    corpo,
-                    "text/csv; charset=utf-8",
-                    headers_extra={"Content-Disposition": 'attachment; filename="atendimentos.csv"'},
-                )
-                return
-            if rota == "/api/export/xml":
-                with LOCK:
-                    dados = export.ler_atendimentos(DEMO_DIR)
-                    corpo = export.exportar_xml(dados).encode("utf-8")
-                self._send_bytes(
-                    corpo,
-                    "application/xml; charset=utf-8",
-                    headers_extra={"Content-Disposition": 'attachment; filename="atendimentos.xml"'},
-                )
-                return
-            self._send_json({"error": "Rota não encontrada."}, 404)
-        except (config_mod.ConfigError, knowledge_base.BaseInvalida) as exc:
-            self._send_json({"error": str(exc)}, 400)
-        except Exception as exc:
-            self._send_json({"error": f"Erro interno: {exc}"}, 500)
+        self._enviar()
 
     def do_POST(self) -> None:  # noqa: N802 (API do http.server)
-        rota = urlparse(self.path).path
-        try:
-            if rota == "/api/process":
-                payload = self._ler_json()
-                with LOCK:
-                    item = _executar(payload)
-                    estado = _estado()
-                self._send_json({**item, **estado, "llm": llm_client.status_llm()})
-                return
-
-            if rota == "/api/run-all":
-                casos = _casos()
-                with LOCK:
-                    limpar_saidas(DEMO_DIR)
-                    itens = [_executar(caso) for caso in casos]
-                    estado = _estado()
-                self._send_json(
-                    {
-                        "resultados": itens,
-                        "total": len(itens),
-                        "llm": llm_client.status_llm(),
-                        **estado,
-                    }
-                )
-                return
-
-            if rota == "/api/reset":
-                with LOCK:
-                    limpar_saidas(DEMO_DIR)
-                    estado = _estado()
-                self._send_json({"llm": llm_client.status_llm(), **estado})
-                return
-
-            if rota == "/api/config":
-                parcial = self._ler_json()
-                with LOCK:
-                    atual = config_mod.carregar()
-                    novo = config_mod.validar(config_mod.mesclar(atual, parcial))
-                    config_mod.salvar(novo)
-                self._send_json(
-                    {
-                        "config": novo,
-                        "llm": llm_client.status_llm(),
-                        "meta": _meta(),
-                    }
-                )
-                return
-
-            if rota == "/api/config/reset":
-                with LOCK:
-                    novo = config_mod.restaurar()
-                self._send_json(
-                    {
-                        "config": novo,
-                        "llm": llm_client.status_llm(),
-                        "meta": _meta(),
-                    }
-                )
-                return
-
-            if rota == "/api/kb":
-                dados = self._ler_json()
-                base = dados["kb"] if isinstance(dados.get("kb"), dict) else dados
-                with LOCK:
-                    knowledge_base.salvar_base(base)
-                    limpa = knowledge_base.carregar_base()
-                self._send_json({"kb": limpa})
-                return
-
-            if rota == "/api/kb/test":
-                payload = self._ler_json()
-                mensagem = str(payload.get("mensagem") or "").strip()
-                if not mensagem:
-                    raise ValueError("Digite uma mensagem para testar.")
-                with LOCK:
-                    diagnostico = knowledge_base.pontuar_faqs(mensagem)
-                self._send_json(diagnostico)
-                return
-
-            self._send_json({"error": "Rota não encontrada."}, 404)
-        except (config_mod.ConfigError, knowledge_base.BaseInvalida, ValueError) as exc:
-            self._send_json({"error": str(exc)}, 400)
-        except Exception as exc:  # demo local: devolve a mensagem para facilitar o debug
-            self._send_json({"error": f"Erro interno: {exc}"}, 500)
+        self._enviar()
 
     def log_message(self, formato: str, *args) -> None:
         print(f"[demo] {self.address_string()} - {formato % args}")
@@ -356,9 +397,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     status = llm_client.status_llm()
-    modo = f"mock (offline)" if status["mock"] else f"OpenAI {status['model']}"
+    modo = "mock (offline)" if status["mock"] else f"OpenAI {status['model']}"
     print("=" * 64)
-    print(" AURORA DIGITAL - DEMO DE ATENDIMENTO")
+    print(" LOVEL DIGITAL - DEMO DE ATENDIMENTO")
     print("=" * 64)
     print(f" URL          : {url}")
     print(f" LLM          : {modo}")

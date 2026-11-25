@@ -49,6 +49,14 @@ class BaseInvalida(ValueError):
 
 
 def caminho_base() -> Path:
+    """Arquivo da base em uso.
+
+    ``LOVEL_KB`` tem prioridade para permitir uma cópia gravável em ambientes
+    serverless (o arquivo original do repositório é somente-leitura).
+    """
+    alternativo = os.getenv("LOVEL_KB")
+    if alternativo:
+        return Path(alternativo).expanduser()
     return config_mod.caminho_base()
 
 

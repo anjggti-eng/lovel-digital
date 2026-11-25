@@ -288,7 +288,14 @@ def secao(nome: str) -> dict[str, Any]:
 
 
 def diretorio_saida() -> Path:
-    """Diretório de saída configurado, resolvido a partir da raiz do projeto."""
+    """Diretório de saída configurado.
+
+    ``LOVEL_OUTPUT_DIR`` tem prioridade (útil em ambientes com disco
+    somente-leitura, como o Vercel, onde a escrita vai para ``/tmp``).
+    """
+    alternativo = os.getenv("LOVEL_OUTPUT_DIR")
+    if alternativo:
+        return Path(alternativo).expanduser()
     bruto = Path(carregar()["registro"]["diretorio"]).expanduser()
     return bruto if bruto.is_absolute() else ROOT / bruto
 

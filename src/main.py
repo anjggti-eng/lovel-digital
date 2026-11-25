@@ -173,7 +173,7 @@ def rodar_todos(output_dir: str | Path | None = None) -> list[ResultadoAtendimen
     destino = Path(output_dir) if output_dir is not None else config.diretorio_saida()
     limpar_saidas(destino)
     print("=" * 66)
-    print(" AURORA DIGITAL - ATENDIMENTO AUTOMATICO (WhatsApp simulado)")
+    print(" LOVEL DIGITAL - ATENDIMENTO AUTOMATICO (WhatsApp simulado)")
     print("=" * 66)
 
     resultados: list[ResultadoAtendimento] = []

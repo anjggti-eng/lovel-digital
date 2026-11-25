@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="Lovel Digital" width="260">
+  <img src="assets/logo.png" alt="Lovel Digital" width="300">
 </p>
 
 <h1 align="center">Lovel Digital — Atendimento automático via WhatsApp</h1>
@@ -18,6 +18,25 @@
 
 ---
 
+## Início rápido
+
+```bash
+git clone <URL-DO-SEU-REPOSITORIO> lovel-digital
+cd lovel-digital
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+MOCK_LLM=1 python -m src.demo_server --open
+```
+
+> No **Windows (PowerShell)**, troque a última linha por
+> `$env:MOCK_LLM="1"; python -m src.demo_server --open`.
+
+A demo abre em **http://127.0.0.1:8000**. Para rodar só o fluxo no terminal:
+`MOCK_LLM=1 python -m src.main --all`.
+
+---
+
 ## Índice
 
 1. [O que é este projeto](#1-o-que-é-este-projeto)
@@ -31,11 +50,12 @@
 9. [Saídas e exportação (CSV / XML)](#9-saídas-e-exportação-csv--xml)
 10. [Saudação automática ("oi" / "ola")](#10-saudação-automática-oi--ola)
 11. [Integração com a API do WhatsApp](#11-integração-com-a-api-do-whatsapp)
-12. [Casos de teste](#12-casos-de-teste)
+12. [Fluxo demonstrável — 7 casos simulados](#12-fluxo-demonstrável--7-casos-simulados)
 13. [Testes automatizados](#13-testes-automatizados)
 14. [Estrutura de arquivos](#14-estrutura-de-arquivos)
 15. [Limitações e próximos passos](#15-limitações-e-próximos-passos)
-16. [Licença](#16-licença)
+16. [Deploy no Vercel (opcional)](#16-deploy-no-vercel-opcional)
+17. [Licença](#17-licença)
 
 ---
 
@@ -75,10 +95,12 @@ Dependências (em `requirements.txt`):
 | `openai` | Classificação e redação com `gpt-4o-mini` (modo real) |
 | `scikit-learn` | Busca por similaridade TF-IDF na base de conhecimento |
 | `python-dotenv` | Leitura do arquivo `.env` |
+| `flask` | Adaptador WSGI usado **somente** no deploy do Vercel |
 | `pytest` / `pytest-mock` | Testes automatizados |
 
-Não é necessário banco de dados, servidor web externo ou Docker. A demo usa
-apenas a biblioteca padrão do Python (`http.server`).
+Não é necessário banco de dados, servidor web externo ou Docker. O demo local
+usa apenas a biblioteca padrão do Python (`http.server`); o Flask entra só no
+deploy serverless (veja a [seção 16](#16-deploy-no-vercel-opcional)).
 
 ---
 
@@ -170,6 +192,8 @@ python -m src.demo_server --port 8001 --open
 A demo usa o **mesmo** `processar_mensagem` do CLI e grava em `outputs/demo/`,
 sem alterar os artefatos canônicos de `outputs/`.
 
+![Demo web da Lovel Digital](docs/demo.png)
+
 ### 4.4. Com Make (Linux / macOS / WSL)
 
 ```bash
@@ -233,8 +257,9 @@ Ordem de execução em `src/main.py` → `processar_mensagem()`:
 | `src/llm_client.py` | Wrapper da OpenAI e mock determinístico |
 | `src/config.py` | Configuração única, validação e gravação atômica |
 | `src/export.py` | Exportação dos atendimentos em CSV e XML |
-| `src/demo_server.py` | Servidor HTTP local da demo (stdlib) |
+| `src/demo_server.py` | Roteador HTTP comum + servidor local (stdlib) |
 | `src/demo_ui.html` | Interface da demo (chat + pipeline + configurações) |
+| `app.py` | Adaptador WSGI/Flask que usa o mesmo roteador no Vercel |
 
 ---
 
@@ -299,7 +324,9 @@ Toda a configuração fica em **`config/lovel.json`** e pode ser editada pela ab
 Precedência de carregamento:
 
 1. `MOCK_LLM=1` no ambiente → força o modo offline.
-2. `LOVEL_CONFIG=<caminho>` no ambiente → usa outro arquivo.
+2. Caminhos alternativos no ambiente: `LOVEL_CONFIG` (config),
+   `LOVEL_KB` (base), `LOVEL_DEMO_DIR` (artefatos da demo) e
+   `LOVEL_OUTPUT_DIR` (saída do CLI).
 3. `config/lovel.json`.
 4. Valores padrão internos (usados quando falta uma chave).
 
@@ -416,7 +443,20 @@ O restante do fluxo (classificação, base, transbordo, registro) permanece igua
 
 ---
 
-## 12. Casos de teste
+## 12. Fluxo demonstrável — 7 casos simulados
+
+O projeto entrega **7 casos simulados** (acima do mínimo de 6) e cobre os
+cenários pedidos: dúvida simples, pergunta fora da base, cliente irritado,
+entrada incompleta/ambígua, risco jurídico, suporte técnico e urgência coberta.
+
+Para ver o fluxo inteiro de uma vez:
+
+```bash
+MOCK_LLM=1 python -m src.main --all
+```
+
+Ou abra a demo, clique em **Rodar os 7 casos** e acompanhe cada etapa do
+pipeline (classificação → busca → decisão → registro).
 
 | # | Arquivo | Entrada (resumo) | Intenção | Urgência | Status | Motivo do transbordo |
 |---|---|---|---|---|---|---|
@@ -464,8 +504,9 @@ Resultado atual: **12 testes passando**, todos offline (sem rede):
 ```
 lovel-digital/
 ├── assets/
-│   ├── logo.svg              # logo completa (README)
-│   └── logo-mark.svg         # marca compacta (cabeçalho da UI)
+│   ├── logo.png              # logo original completa (README)
+│   ├── logo-mark.png         # globo recortado (cabeçalho da UI)
+│   └── favicon.png           # ícone da aba
 ├── config/
 │   └── lovel.json            # configuração única (editável pela UI)
 ├── data/
@@ -485,12 +526,15 @@ lovel-digital/
 │   ├── llm_client.py
 │   ├── config.py
 │   ├── export.py
-│   ├── demo_server.py
+│   ├── demo_server.py        # roteador + servidor local (stdlib)
 │   └── demo_ui.html
 ├── tests/
 │   ├── __init__.py
 │   └── test_flow.py
 ├── outputs/                  # artefatos canônicos (CSV, tickets, webhooks)
+├── app.py                    # adaptador WSGI/Flask para o Vercel
+├── vercel.json               # configuração do deploy
+├── .vercelignore
 ├── .env.example
 ├── .gitignore
 ├── Makefile
@@ -519,7 +563,56 @@ lovel-digital/
 
 ---
 
-## 16. Licença
+## 16. Deploy no Vercel (opcional)
+
+O projeto está pronto para um teste público no Vercel. O `app.py` é um adaptador
+WSGI (Flask) que chama o **mesmo** roteador do demo local
+(`src/demo_server.py → responder()`), então as rotas e as regras são idênticas
+— não existe uma "versão Vercel" com comportamento diferente.
+
+### Opção A — CLI
+
+```bash
+npm i -g vercel
+vercel
+```
+
+Na primeira vez, aceite as perguntas padrão (o framework é detectado como
+Flask). Para publicar em produção: `vercel --prod`.
+
+### Opção B — painel
+
+1. Envie o repositório para o GitHub.
+2. Em [vercel.com/new](https://vercel.com/new), importe o repositório.
+3. Não é preciso configurar *build command* nem *output directory*: o Vercel
+   detecta `app.py` + `requirements.txt`.
+4. Clique em **Deploy**. A URL pública já abre a demo.
+
+### Variáveis de ambiente (opcionais)
+
+| Variável | Efeito |
+|---|---|
+| `MOCK_LLM=1` | Força o modo offline. Já é o padrão no Vercel. |
+| `OPENAI_API_KEY` | Liga o LLM real; use junto com `MOCK_LLM=0`. |
+| `LOVEL_CONFIG` / `LOVEL_KB` / `LOVEL_DEMO_DIR` / `LOVEL_OUTPUT_DIR` | Sobrescrevem caminhos. O `app.py` já aponta tudo para `/tmp`. |
+
+### O que muda no Vercel
+
+- **Disco efêmero.** Configurações editadas, FAQs e atendimentos ficam em
+  `/tmp` e somem quando a instância é reciclada. O CSV/XML continua funcionando
+  durante a vida da instância; para persistência real, use banco de dados ou
+  Vercel Blob.
+- **Modo mock por padrão.** A demo pública não gasta tokens nem exige chave.
+- **Cold start.** A primeira requisição pode levar alguns segundos (import do
+  scikit-learn + cópia dos arquivos para `/tmp`).
+- **Sem autenticação.** É uma demo. Não coloque dados reais de clientes.
+
+O demo local continua sendo a experiência completa (persistência em `outputs/`,
+edição de config/base e exportação).
+
+---
+
+## 17. Licença
 
 Este projeto é um protótipo de estudo. **Defina uma licença antes de publicar**
 (ex.: MIT, Apache-2.0) e adicione o arquivo `LICENSE` correspondente.
